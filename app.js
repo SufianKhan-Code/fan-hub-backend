@@ -34,7 +34,9 @@ let databaseInitialization;
 const initializeDatabase = () => {
   if (!databaseInitialization) {
     databaseInitialization = connectDB()
-      .then(() => (process.env.VERCEL === '1' ? undefined : autoSeedIfEmpty()))
+      .then(async () => {
+        await autoSeedIfEmpty();
+      })
       .catch((error) => {
         databaseInitialization = null;
         throw error;
@@ -60,16 +62,20 @@ const allowedOrigins = [
   'http://localhost:3000',
   'http://127.0.0.1:5173',
   'http://127.0.0.1:3000',
+  'https://fan-hub-frontend-rouge.vercel.app',
   process.env.CLIENT_URL
-].filter(Boolean);
+]
+  .filter(Boolean)
+  .map(url => url.replace(/\/$/, ''));
 
 app.use(cors({
   origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else if (!isProduction) {
+    const normalizedOrigin = origin?.replace(/\/$/, '');
+
+    if (!origin || allowedOrigins.includes(normalizedOrigin)) {
       callback(null, true);
     } else {
+      console.log('Blocked CORS Origin:', origin);
       callback(new Error('Origin not allowed by CORS'));
     }
   },
