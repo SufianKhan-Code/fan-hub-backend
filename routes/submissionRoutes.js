@@ -4,7 +4,9 @@ import {
   getMySubmissions,
   getApprovedSubmissions,
   getAllSubmissionsAdmin,
-  moderateSubmission
+  updateSubmissionAdmin,
+  moderateSubmission,
+  deleteSubmissionAdmin
 } from '../controllers/submissionController.js';
 import { protect, authorize } from '../middleware/authMiddleware.js';
 
@@ -14,8 +16,10 @@ router.get('/approved', getApprovedSubmissions);
 router.get('/my', protect, getMySubmissions);
 router.post('/', protect, createSubmission);
 
-// Admin moderation
+// Admin moderation and management
 router.get('/admin', protect, authorize('admin'), getAllSubmissionsAdmin);
+router.put('/:id/admin', protect, authorize('admin'), updateSubmissionAdmin);
 router.put('/:id/moderate', protect, authorize('admin'), moderateSubmission);
+router.delete('/:id', protect, authorize('admin'), deleteSubmissionAdmin);
 
 export default router;

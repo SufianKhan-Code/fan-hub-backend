@@ -1,6 +1,14 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 
+const getJwtSecret = () => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error('JWT_SECRET is not configured.');
+  }
+  return secret;
+};
+
 export const protect = async (req, res, next) => {
   let token;
 
@@ -18,7 +26,7 @@ export const protect = async (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fanhubplus_super_secret_jwt_key_techwiz7_2026');
+    const decoded = jwt.verify(token, getJwtSecret());
     const user = await User.findById(decoded.id);
 
     if (!user) {
@@ -63,7 +71,7 @@ export const optionalAuth = async (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fanhubplus_super_secret_jwt_key_techwiz7_2026');
+    const decoded = jwt.verify(token, getJwtSecret());
     req.user = await User.findById(decoded.id);
   } catch (err) {
     // Continue as guest

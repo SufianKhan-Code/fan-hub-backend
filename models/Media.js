@@ -52,6 +52,16 @@ const mediaSchema = new mongoose.Schema({
     type: String,
     default: 'Official Studio'
   },
+  sourceUrl: {
+    type: String,
+    default: '',
+    trim: true
+  },
+  rightsNote: {
+    type: String,
+    default: '',
+    trim: true
+  },
   tags: [{
     type: String,
     trim: true

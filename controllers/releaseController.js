@@ -3,7 +3,7 @@ import Category from '../models/Category.js';
 
 export const getReleases = async (req, res, next) => {
   try {
-    const { category, releaseType, fandom, search } = req.query;
+    const { category, releaseType, fandom, search, limit } = req.query;
     const query = {};
 
     if (category) {
@@ -28,9 +28,15 @@ export const getReleases = async (req, res, next) => {
       ];
     }
 
-    const releases = await UpcomingRelease.find(query)
+    const parsedLimit = Math.min(Math.max(Number.parseInt(limit, 10) || 0, 0), 24);
+
+    let releaseQuery = UpcomingRelease.find(query)
       .populate('category', 'name slug color icon')
       .sort('releaseDate');
+
+    if (parsedLimit) releaseQuery = releaseQuery.limit(parsedLimit);
+
+    const releases = await releaseQuery;
 
     res.status(200).json({
       success: true,

@@ -3,8 +3,18 @@ import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import UserActivity from '../models/UserActivity.js';
 
+const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1';
+
+const getJwtSecret = () => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error('JWT_SECRET is not configured. Set it in your environment before starting the server.');
+  }
+  return secret;
+};
+
 const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET || 'fanhubplus_super_secret_jwt_key_techwiz7_2026', {
+  return jwt.sign({ id }, getJwtSecret(), {
     expiresIn: '30d'
   });
 };
@@ -174,41 +184,42 @@ export const forgotPassword = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Please provide your email address' });
     }
 
+    const genericMessage = 'If that email is registered, a password reset request has been created.';
     const user = await User.findOne({ email: email.toLowerCase() });
     if (!user) {
-      // Security standard: don't reveal user existence
-      return res.status(200).json({
-        success: true,
-        message: 'If that email is registered, password reset instructions have been generated.'
-      });
+      return res.status(200).json({ success: true, message: genericMessage });
     }
 
-    // Generate reset token
-    const resetToken = crypto.randomBytes(20).toString('hex');
-
-    // Hash token and set to resetPasswordToken field
-    user.resetPasswordToken = crypto
-      .createHash('sha256')
-      .update(resetToken)
-      .digest('hex');
-
-    // Set expire (30 minutes)
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    user.resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
     user.resetPasswordExpires = Date.now() + 30 * 60 * 1000;
     await user.save({ validateBeforeSave: false });
 
     const resetUrl = `${process.env.CLIENT_URL || 'http://localhost:5173'}/reset-password/${resetToken}`;
-    console.log(`\n======================================================`);
-    console.log(`🔑 DEVELOPMENT PASSWORD RESET TOKEN GENERATED`);
-    console.log(`User: ${user.email}`);
-    console.log(`Token: ${resetToken}`);
-    console.log(`Reset URL: ${resetUrl}`);
-    console.log(`======================================================\n`);
+    const allowDevResetToken = !isProduction && process.env.ALLOW_DEV_RESET_TOKEN !== 'false';
 
-    res.status(200).json({
+    if (allowDevResetToken) {
+      console.log(`
+======================================================`);
+      console.log(`🔑 LOCAL DEVELOPMENT PASSWORD RESET LINK`);
+      console.log(`User: ${user.email}`);
+      console.log(`Reset URL: ${resetUrl}`);
+      console.log(`======================================================
+`);
+
+      return res.status(200).json({
+        success: true,
+        message: 'Development reset link generated successfully.',
+        devResetToken: resetToken,
+        devResetUrl: resetUrl
+      });
+    }
+
+    // Production deliberately never returns or logs the reset token.
+    // Connect an email provider later if self-service delivery is required.
+    return res.status(200).json({
       success: true,
-      message: 'Password reset token generated successfully. In development/competition mode, the token is provided directly below for easy testing.',
-      devResetToken: resetToken,
-      devResetUrl: resetUrl
+      message: genericMessage
     });
   } catch (err) {
     next(err);

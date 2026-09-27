@@ -1,6 +1,12 @@
 import FanSubmission from '../models/FanSubmission.js';
 import UserActivity from '../models/UserActivity.js';
 
+const normalizeMediaUrls = (mediaUrls) => {
+  if (Array.isArray(mediaUrls)) return mediaUrls.filter(Boolean);
+  if (!mediaUrls) return [];
+  return [mediaUrls].filter(Boolean);
+};
+
 export const createSubmission = async (req, res, next) => {
   try {
     const { title, category, fandom, submissionType, summary, content, mediaUrls } = req.body;
@@ -17,7 +23,7 @@ export const createSubmission = async (req, res, next) => {
       submissionType: submissionType || 'fan_article',
       summary,
       content,
-      mediaUrls: Array.isArray(mediaUrls) ? mediaUrls : (mediaUrls ? [mediaUrls] : []),
+      mediaUrls: normalizeMediaUrls(mediaUrls),
       status: 'pending'
     });
 
@@ -120,6 +126,52 @@ export const getAllSubmissionsAdmin = async (req, res, next) => {
   }
 };
 
+export const updateSubmissionAdmin = async (req, res, next) => {
+  try {
+    const {
+      title,
+      category,
+      fandom,
+      submissionType,
+      summary,
+      content,
+      mediaUrls
+    } = req.body;
+
+    if (!title || !category || !fandom || !summary || !content) {
+      return res.status(400).json({ success: false, message: 'Title, category, fandom, summary and content are required' });
+    }
+
+    const submission = await FanSubmission.findById(req.params.id);
+    if (!submission) {
+      return res.status(404).json({ success: false, message: 'Submission not found' });
+    }
+
+    submission.title = title.trim();
+    submission.category = category;
+    submission.fandom = fandom.trim();
+    submission.submissionType = submissionType || submission.submissionType;
+    submission.summary = summary.trim();
+    submission.content = content;
+    submission.mediaUrls = normalizeMediaUrls(mediaUrls);
+    await submission.save();
+
+    await submission.populate([
+      { path: 'user', select: 'name email avatar' },
+      { path: 'category', select: 'name slug color icon' },
+      { path: 'reviewedBy', select: 'name' }
+    ]);
+
+    res.status(200).json({
+      success: true,
+      message: 'Submission updated successfully',
+      data: submission
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const moderateSubmission = async (req, res, next) => {
   try {
     const { status, adminFeedback } = req.body;
@@ -143,6 +195,23 @@ export const moderateSubmission = async (req, res, next) => {
       success: true,
       message: `Submission marked as ${status}`,
       data: submission
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const deleteSubmissionAdmin = async (req, res, next) => {
+  try {
+    const submission = await FanSubmission.findByIdAndDelete(req.params.id);
+
+    if (!submission) {
+      return res.status(404).json({ success: false, message: 'Submission not found' });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Submission removed successfully'
     });
   } catch (err) {
     next(err);

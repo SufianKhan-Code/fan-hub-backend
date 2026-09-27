@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import crypto from 'crypto';
 import dotenv from 'dotenv';
 import { connectDB, closeDB } from '../config/db.js';
 import User from '../models/User.js';
@@ -20,8 +21,30 @@ import { categoriesData, chatbotFaqsData } from './seedData.js';
 
 dotenv.config();
 
+const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1';
+
+const resolveSeedCredential = (key, label) => {
+  const configured = process.env[key];
+  if (configured) return configured;
+  if (isProduction) {
+    throw new Error(`${key} must be configured before running the production seed.`);
+  }
+  const generated = crypto.randomBytes(18).toString('base64url');
+  console.warn(`⚠️ ${key} was not set. Generated temporary local ${label}: ${generated}`);
+  return generated;
+};
+
 const seedDatabase = async () => {
   try {
+    if (isProduction && process.env.ALLOW_DESTRUCTIVE_SEED !== 'true') {
+      throw new Error('Refusing to purge a production database. Set ALLOW_DESTRUCTIVE_SEED=true only for an intentional reset.');
+    }
+
+    const seedAdminEmail = process.env.SEED_ADMIN_EMAIL || 'admin@fanhubplus.demo';
+    const seedUserEmail = process.env.SEED_USER_EMAIL || 'user@fanhubplus.demo';
+    const seedAdminPassword = resolveSeedCredential('SEED_ADMIN_PASSWORD', 'admin seed password');
+    const seedUserPassword = resolveSeedCredential('SEED_USER_PASSWORD', 'user seed password');
+
     await connectDB();
 
     console.log('🧹 Purging existing collections for clean seed...');
@@ -46,8 +69,8 @@ const seedDatabase = async () => {
     console.log('🌱 Seeding Users...');
     const adminUser = await User.create({
       name: 'Eleanor Vance (Curator Admin)',
-      email: 'admin@fanhubplus.demo',
-      password: 'Admin123!',
+      email: seedAdminEmail,
+      password: seedAdminPassword,
       role: 'admin',
       avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80',
       bio: 'Head Curator & Master Administrator of the Fan Hub Plus Fandom Universe.',
@@ -62,8 +85,8 @@ const seedDatabase = async () => {
 
     const standardUser = await User.create({
       name: 'Kai Takahashi',
-      email: 'user@fanhubplus.demo',
-      password: 'User123!',
+      email: seedUserEmail,
+      password: seedUserPassword,
       role: 'user',
       avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80',
       bio: 'Lifelong anime enthusiast, gamer, and weekend prop builder.',
@@ -518,17 +541,19 @@ const seedDatabase = async () => {
     console.log('🌱 Seeding Media...');
     const mediaData = [
       {
-        title: 'Demon Slayer: Kimetsu no Yaiba - Official Movie Teaser',
+        title: 'Demon Slayer: Kimetsu no Yaiba Infinity Castle — Official Trailer',
         type: 'trailer',
         category: catMap['anime'],
         fandom: 'Demon Slayer',
         thumbnailUrl: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=800&q=80',
-        embedUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ', // safe demo video embed
-        mediaUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-        description: 'Prepare for the monumental theatrical trilogy starting in the Infinity Castle. High octane sword choreography and breathtaking ufotable visuals.',
-        duration: '02:18',
-        artistOrCreator: 'ufotable / Aniplex',
-        tags: ['Trailer', 'Infinity Castle', 'Tanjiro', 'ufotable'],
+        embedUrl: 'https://www.youtube.com/embed/9kb7vK11_Rw',
+        mediaUrl: '',
+        description: 'Official Infinity Castle trailer embedded from Aniplex USA. The entry now links to the matching publisher video instead of unrelated sample footage.',
+        duration: 'Official trailer',
+        artistOrCreator: 'Aniplex USA / ufotable',
+        sourceUrl: 'https://www.youtube.com/watch?v=9kb7vK11_Rw',
+        rightsNote: 'Official publisher embed. Demon Slayer footage, music, characters and trademarks remain the property of their respective rights holders.',
+        tags: ['Official Trailer', 'Infinity Castle', 'Tanjiro', 'ufotable'],
         ratingAverage: 4.95,
         ratingCount: 310,
         thumbsUpCount: 420,
@@ -537,35 +562,39 @@ const seedDatabase = async () => {
         isFeatured: true
       },
       {
-        title: 'Gurenge & Kamado Tanjiro no Uta - Orchestral Suite Sample',
+        title: 'Fan Hub Plus Audio Player Demo — Ambient Mix',
         type: 'audio',
-        category: catMap['anime'],
-        fandom: 'Demon Slayer',
+        category: catMap['k-pop'],
+        fandom: 'Fan Hub Plus Demo',
         thumbnailUrl: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=800&q=80',
         audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
-        description: 'A symphonic orchestral rendition of the iconic Demon Slayer anthems featuring traditional Japanese taiko drums and bamboo flutes.',
-        duration: '04:12',
-        artistOrCreator: 'Tokyo Philharmonic Orchestra / Go Shiina',
-        tags: ['Soundtrack', 'Audio', 'Orchestral', 'Demon Slayer'],
-        ratingAverage: 4.9,
-        ratingCount: 190,
-        thumbsUpCount: 280,
+        description: 'A clearly labeled sample track used to demonstrate the HTML audio-player experience. It is not presented as an official fandom soundtrack.',
+        duration: 'Demo audio',
+        artistOrCreator: 'SoundHelix sample audio',
+        sourceUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
+        rightsNote: 'Demo/sample audio. Verify the source terms before redistribution or use outside this project demonstration.',
+        tags: ['Audio Demo', 'Player Test', 'Sample Track'],
+        ratingAverage: 4.7,
+        ratingCount: 72,
+        thumbsUpCount: 110,
         thumbsDownCount: 3,
-        viewCount: 9200,
-        isFeatured: true
+        viewCount: 3600,
+        isFeatured: false
       },
       {
-        title: 'Elden Ring: Shadow of the Erdtree Cinematic Launch Trailer',
-        type: 'video',
+        title: 'ELDEN RING Shadow of the Erdtree — Official Launch Trailer',
+        type: 'trailer',
         category: catMap['gaming'],
         fandom: 'Elden Ring',
         thumbnailUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=800&q=80',
-        embedUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
-        mediaUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
-        description: 'Step into the Realm of Shadow where Miquella awaits. Witness the grotesque majesty of Messmer the Impaler in 4K 60FPS.',
-        duration: '03:02',
-        artistOrCreator: 'FromSoftware / Bandai Namco',
-        tags: ['Trailer', 'Elden Ring', 'Messmer', 'Miquella'],
+        embedUrl: 'https://www.youtube.com/embed/JugxpebuS_E',
+        mediaUrl: '',
+        description: 'Official Shadow of the Erdtree launch trailer embedded from Bandai Namco Entertainment America, replacing unrelated demo footage.',
+        duration: 'Official trailer',
+        artistOrCreator: 'Bandai Namco Entertainment America / FromSoftware',
+        sourceUrl: 'https://www.youtube.com/watch?v=JugxpebuS_E',
+        rightsNote: 'Official publisher embed. ELDEN RING footage, music, characters and trademarks remain the property of their respective rights holders.',
+        tags: ['Official Trailer', 'Elden Ring', 'Shadow of the Erdtree', 'FromSoftware'],
         ratingAverage: 4.92,
         ratingCount: 280,
         thumbsUpCount: 390,
@@ -574,7 +603,7 @@ const seedDatabase = async () => {
         isFeatured: true
       },
       {
-        title: 'World Cosplay Summit Championship Gallery',
+        title: 'Cosplay Craft & Convention Gallery',
         type: 'gallery',
         category: catMap['cosplay'],
         fandom: 'Cosplay Showcase',
@@ -584,16 +613,18 @@ const seedDatabase = async () => {
           'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=800&q=80',
           'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=800&q=80'
         ],
-        description: 'Official stage photography from the Nagoya World Cosplay Summit finals showcasing intricate mecha armor, hand-stitched kimono, and LED prop weaponry.',
-        duration: '18 Photos',
-        artistOrCreator: 'WCS Official Media Team',
-        tags: ['Gallery', 'Photography', 'Championship', 'WCS'],
+        description: 'A curated demonstration gallery for cosplay craft, costume presentation and convention-style photography. It no longer claims to contain official World Cosplay Summit photography.',
+        duration: '3 demo images',
+        artistOrCreator: 'Fan Hub Plus curated demo',
+        sourceUrl: 'https://unsplash.com/',
+        rightsNote: 'Demo images are loaded from Unsplash-hosted URLs. Verify each source and applicable license before final redistribution.',
+        tags: ['Gallery', 'Cosplay', 'Costume Craft', 'Demo'],
         ratingAverage: 4.88,
         ratingCount: 145,
         thumbsUpCount: 220,
         thumbsDownCount: 2,
         viewCount: 6800,
-        isFeatured: false
+        isFeatured: true
       }
     ];
     await Media.insertMany(mediaData);
@@ -856,7 +887,7 @@ const seedDatabase = async () => {
       {
         user: standardUser._id,
         name: 'Kai Takahashi',
-        email: 'user@fanhubplus.demo',
+        email: seedUserEmail,
         type: 'suggestion',
         subject: 'Add 3D model viewer for character armors',
         message: 'It would be amazing to rotate character costumes in 3D for cosplay prop referencing!',
@@ -904,8 +935,9 @@ const seedDatabase = async () => {
 
     console.log('✅ DATABASE SEED COMPLETED SUCCESSFULLY!');
     console.log('========================================================');
-    console.log('Admin: admin@fanhubplus.demo  /  Password: Admin123!');
-    console.log('User:  user@fanhubplus.demo   /  Password: User123!');
+    console.log(`Admin seed account: ${seedAdminEmail}`);
+    console.log(`User seed account:  ${seedUserEmail}`);
+    console.log('Seed passwords are sourced from environment variables (or generated locally above).');
     console.log('========================================================');
 
     await closeDB();
